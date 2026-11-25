@@ -168,6 +168,7 @@ type TrafficExchangeDTO struct {
 	Status      int    `json:"status"`
 	ContentType string `json:"content_type"`
 	RespLen     int    `json:"resp_len"`
+	Rewritten   bool   `json:"rewritten"`
 }
 
 func trafficDTOs(ex []traffic.ExchangeMeta) []TrafficExchangeDTO {
@@ -182,6 +183,7 @@ func trafficDTOs(ex []traffic.ExchangeMeta) []TrafficExchangeDTO {
 			Status:      e.Status,
 			ContentType: e.ContentType,
 			RespLen:     e.RespLen,
+			Rewritten:   e.Rewritten,
 		})
 	}
 	return out
@@ -642,7 +644,8 @@ type LLMProfileDTO struct {
 	SessionHeaderKey string `json:"session_header_key"`
 	// Custom User-Agent: when non-empty, every outbound LLM request overrides its
 	// User-Agent header with this value. '' = do not override (keep the default UA).
-	UserAgent string `json:"user_agent"`
+	UserAgent        string `json:"user_agent"`
+	CustomHeadersSet bool   `json:"custom_headers_set"`
 	// This profile's retry overrides (connect / empty response / same-provider safe
 	// window). Per item attempts: 0=inherit the global policy | -1=disable that retry
 	// layer | >0=count; interval_ms: 0=default exponential backoff | >0=use that fixed millisecond interval. All zero = fully follow the global policy, i.e. the historical behavior.
@@ -672,6 +675,7 @@ func llmProfileDTO(p *db.LLMProfile) LLMProfileDTO {
 		MaxTokensField:   p.MaxTokensField,
 		SessionHeaderKey: p.SessionHeaderKey,
 		UserAgent:        p.UserAgent,
+		CustomHeadersSet: p.CustomHeaders != "",
 		Retry:            p.Retry,
 	}
 }

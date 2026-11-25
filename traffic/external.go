@@ -2,7 +2,7 @@ package traffic
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
@@ -38,6 +38,15 @@ func (t *Traffic) RecordExternal(e ExternalExchange) error {
 	if method == "" {
 		return fmt.Errorf("empty method for %q", e.URL)
 	}
+	if !validHeaderName(method) {
+		return fmt.Errorf("invalid method %q", e.Method)
+	}
+	if err := validateExternalHeaders(e.RequestHeaders); err != nil {
+		return err
+	}
+	if err := validateExternalHeaders(e.ResponseHeaders); err != nil {
+		return err
+	}
 	status := e.Status
 	if status == 0 {
 		status = 200
@@ -60,7 +69,7 @@ func (t *Traffic) RecordExternal(e ExternalExchange) error {
 	id := fmt.Sprintf("%d-%04d", now.Unix(), n%10000)
 
 	if err := t.insertExchange(id, now.Unix(), host, method, db.TemplatePath(u.EscapedPath()), u.String(), status, respCT, len(e.RequestBody), len(e.ResponseBody), reqHead, reqB, respHead, respB); err != nil {
-		log.Printf("[traffic] failed to ingest %s: %v", u.String(), err)
+		slog.Error("[traffic] failed to ingest external exchange", "url", u.String(), "err", err)
 		return err
 	}
 	return nil
@@ -116,6 +125,18 @@ VALUES(?,?,?,?,?,?,?)`,
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing: %w", err)
+	}
+	return nil
+}
+
+func validateExternalHeaders(h map[string]string) error {
+	for k, v := range h {
+		if !validHeaderName(k) {
+			return fmt.Errorf("invalid header name %q", k)
+		}
+		if strings.ContainsAny(v, "\r\n\x00") {
+			return fmt.Errorf("header %s contains a line break", k)
+		}
 	}
 	return nil
 }
